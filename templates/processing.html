@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processing Video - ANPR System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+        }
+        .container {
+            max-width: 800px;
+        }
+        .progress {
+            height: 30px;
+        }
+        .plate-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .plate-item:last-child {
+            border-bottom: none;
+        }
+        .confidence-high {
+            color: green;
+        }
+        .confidence-medium {
+            color: orange;
+        }
+        .confidence-low {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Processing Video</h1>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                Progress
+            </div>
+            <div class="card-body">
+                <h5 id="file-name">Loading...</h5>
+                <div class="progress mb-2">
+                    <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span id="frames-processed">Processed: 0/0</span>
+                    <span id="plates-found">Plates found: 0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                Detected Plates
+            </div>
+            <div class="card-body p-0">
+                <div id="detected-plates" class="list-group">
+                    <div class="plate-item text-center">Waiting for detections...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 text-center">
+            <a href="/" class="btn btn-primary">Back to Main Page</a>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function updateStatus() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update progress
+                    document.getElementById('file-name').textContent = `Processing: ${data.current_file}`;
+                    document.getElementById('progress-bar').style.width = `${data.progress}%`;
+                    document.getElementById('progress-bar').textContent = `${data.progress}%`;
+                    document.getElementById('frames-processed').textContent = `Processed: ${data.processed_frames}/${data.total_frames}`;
+                    document.getElementById('plates-found').textContent = `Plates found: ${data.plates_found}`;
+                    
+                    // Update plates list
+                    const container = document.getElementById('detected-plates');
+                    
+                    if (data.plates.length === 0) {
+                        container.innerHTML = '<div class="plate-item text-center">No plates detected yet</div>';
+                    } else {
+                        container.innerHTML = '';
+                        data.plates.forEach(item => {
+                            const confidenceClass = item.confidence >= 70 ? 'confidence-high' : 
+                                                   item.confidence >= 50 ? 'confidence-medium' : 'confidence-low';
+                            
+                            const div = document.createElement('div');
+                            div.className = 'plate-item';
+                            div.innerHTML = `
+                                <div class="d-flex justify-content-between">
+                                    <strong>${item.plate}</strong>
+                                    <span class="${confidenceClass}">${item.confidence}%</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <small>Frame: ${item.frame}</small>
+                                    <small class="text-muted">${item.timestamp}</small>
+                                </div>
+                            `;
+                            container.appendChild(div);
+                        });
+                    }
+                    
+                    // If processing is complete, stop polling
+                    if (!data.is_processing && data.progress === 100) {
+                        clearInterval(statusInterval);
+                        document.getElementById('progress-bar').classList.remove('progress-bar-animated');
+                        document.getElementById('file-name').textContent = `Completed: ${data.current_file}`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching status:', error);
+                });
+        }
+        
+        // Poll for updates every 2 seconds
+        const statusInterval = setInterval(updateStatus, 2000);
+        
+        // Initial update
+        updateStatus();
+    </script>
+</body>
+</html>

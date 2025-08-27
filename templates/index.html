@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANPR System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        #video {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        .plate-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .plate-item:last-child {
+            border-bottom: none;
+        }
+        .nav-tabs {
+            margin-bottom: 20px;
+        }
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 5px;
+            padding: 25px;
+            text-align: center;
+            background-color: #f8f9fa;
+            margin-bottom: 20px;
+        }
+        .upload-area:hover {
+            border-color: #aaa;
+            background-color: #f0f0f0;
+        }
+        .confidence-high {
+            color: green;
+        }
+        .confidence-medium {
+            color: orange;
+        }
+        .confidence-low {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Automatic Number Plate Recognition System</h1>
+        
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="webcam-tab" data-bs-toggle="tab" data-bs-target="#webcam" type="button" role="tab">Live Webcam</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button" role="tab">Video Upload</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab">History</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab">Stats</button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="myTabContent">
+            <!-- Webcam Tab -->
+            <div class="tab-pane fade show active" id="webcam" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-header">
+                                Live Camera Feed
+                            </div>
+                            <div class="card-body">
+                                <img id="video" src="{{ url_for('video_feed') }}" alt="Video Feed">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-header">
+                                Latest Detection
+                            </div>
+                            <div class="card-body">
+                                <h4 id="latest-plate" class="text-center">Waiting for detection...</h4>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                Recent Detections
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="recent-plates" class="list-group">
+                                    <div class="plate-item text-center">Waiting for data...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Upload Tab -->
+            <div class="tab-pane fade" id="upload" role="tabpanel">
+                <div class="card">
+                    <div class="card-header">Upload Video File</div>
+                    <div class="card-body">
+                        <form action="/upload" method="post" enctype="multipart/form-data">
+                            <div class="upload-area">
+                                <p class="mb-3">Drop your video file here or click to browse</p>
+                                <input type="file" id="file" name="file" class="form-control" accept=".mp4,.avi,.mov,.mkv">
+                                <small class="text-muted">Supported formats: .mp4, .avi, .mov, .mkv (max 32MB)</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Upload & Process</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- History Tab -->
+            <div class="tab-pane fade" id="history" role="tabpanel">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>Detection History</span>
+                        <div>
+                            <a href="/export_csv" class="btn btn-sm btn-success">Export to CSV</a>
+                            <a href="/clear_database" class="btn btn-sm btn-danger ms-2" onclick="return confirm('Are you sure? This will delete all records.')">Clear Database</a>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <input type="text" id="search-input" class="form-control" placeholder="Search by plate number">
+                                <button class="btn btn-outline-secondary" type="button" id="search-button">Search</button>
+                            </div>
+                        </div>
+                        
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Plate Number</th>
+                                    <th>Source</th>
+                                    <th>Confidence</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table">
+                                <tr>
+                                    <td colspan="4" class="text-center">Loading data...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stats Tab -->
+            <div class="tab-pane fade" id="stats" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">Summary Statistics</div>
+                            <div class="card-body">
+                                <div id="stats-data">Loading statistics...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Update latest plate
+        function updateLatestPlate() {
+            fetch('/latest_plate')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.plate) {
+                        document.getElementById('latest-plate').textContent = data.plate;
+                    }
+                });
+        }
+
+        // Update recent plates
+        function updateRecentPlates() {
+            fetch('/latest_plates')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('recent-plates');
+                    container.innerHTML = '';
+                    
+                    if (data.length === 0) {
+                        container.innerHTML = '<div class="plate-item text-center">No detections yet</div>';
+                        return;
+                    }
+                    
+                    data.forEach(item => {
+                        const confidenceClass = getConfidenceClass(item.confidence);
+                        const div = document.createElement('div');
+                        div.className = 'plate-item';
+                        div.innerHTML = `
+                            <div class="d-flex justify-content-between">
+                                <strong>${item.plate}</strong>
+                                <span class="${confidenceClass}">${(item.confidence * 100).toFixed(1)}%</span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <small>${item.source}</small>
+                                <small class="text-muted">${formatTime(item.timestamp)}</small>
+                            </div>
+                        `;
+                        container.appendChild(div);
+                    });
+                });
+        }
+
+        // Update history table
+        function updateHistoryTable(searchQuery = '') {
+            const url = searchQuery ? `/search?q=${encodeURIComponent(searchQuery)}` : '/latest_plates';
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('history-table');
+                    tbody.innerHTML = '';
+                    
+                    if (data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-center">No records found</td></tr>';
+                        return;
+                    }
+                    
+                    data.forEach(item => {
+                        const confidenceClass = getConfidenceClass(item.confidence);
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${item.plate}</td>
+                            <td>${item.source}</td>
+                            <td><span class="${confidenceClass}">${(item.confidence * 100).toFixed(1)}%</span></td>
+                            <td>${item.timestamp}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                });
+        }
+
+        // Update statistics
+        function updateStats() {
+            fetch('/stats')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('stats-data');
+                    
+                    let sourceHtml = '';
+                    for (const [source, count] of Object.entries(data.sources)) {
+                        sourceHtml += `<li>${source}: ${count} plates</li>`;
+                    }
+                    
+                    container.innerHTML = `
+                        <h4>Total plates detected: ${data.total_plates}</h4>
+                        <h5>Today's detections: ${data.today_plates}</h5>
+                        <h5>Sources:</h5>
+                        <ul>${sourceHtml}</ul>
+                    `;
+                });
+        }
+
+        // Helper functions
+        function getConfidenceClass(confidence) {
+            if (confidence >= 0.7) return 'confidence-high';
+            if (confidence >= 0.5) return 'confidence-medium';
+            return 'confidence-low';
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp.replace(' ', 'T'));
+            return date.toLocaleTimeString();
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial load
+            updateLatestPlate();
+            updateRecentPlates();
+            updateHistoryTable();
+            updateStats();
+            
+            // Tab change event
+            const historyTab = document.getElementById('history-tab');
+            historyTab.addEventListener('click', function() {
+                updateHistoryTable();
+            });
+            
+            const statsTab = document.getElementById('stats-tab');
+            statsTab.addEventListener('click', function() {
+                updateStats();
+            });
+            
+            // Search functionality
+            const searchButton = document.getElementById('search-button');
+            searchButton.addEventListener('click', function() {
+                const searchInput = document.getElementById('search-input');
+                updateHistoryTable(searchInput.value);
+            });
+            
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    updateHistoryTable(searchInput.value);
+                }
+            });
+            
+            // Set up periodic updates for webcam tab
+            setInterval(updateLatestPlate, 3000);
+            setInterval(updateRecentPlates, 3000);
+        });
+
+        // File upload preview
+        document.getElementById('file').addEventListener('change', function(e) {
+            const fileName = e.target.files[0].name;
+            document.querySelector('.upload-area p').textContent = `Selected: ${fileName}`;
+        });
+
+        // Drag and drop functionality
+        const uploadArea = document.querySelector('.upload-area');
+        
+        uploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            uploadArea.classList.add('bg-light');
+        });
+        
+        uploadArea.addEventListener('dragleave', function() {
+            uploadArea.classList.remove('bg-light');
+        });
+        
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.classList.remove('bg-light');
+            
+            if (e.dataTransfer.files.length) {
+                document.getElementById('file').files = e.dataTransfer.files;
+                document.querySelector('.upload-area p').textContent = `Selected: ${e.dataTransfer.files[0].name}`;
+            }
+        });
+        
+        uploadArea.addEventListener('click', function() {
+            document.getElementById('file').click();
+        });
+    </script>
+</body>
+</html>
