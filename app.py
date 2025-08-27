@@ -249,7 +249,6 @@ def process_video_file(file_path):
     processing_status['total_frames'] = total_frames
     processing_status['processed_frames'] = 0
     
-    # Process every 5th frame to speed up processing
     frame_interval = 5
     frame_number = 0
     
@@ -298,7 +297,6 @@ def process_video_file(file_path):
                                     'confidence': round(confidence * 100, 2)
                                 })
             
-            # Update progress
             frame_number += 1
             processing_status['processed_frames'] = frame_number
             processing_status['progress'] = int((frame_number / total_frames) * 100)

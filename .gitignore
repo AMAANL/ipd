@@ -4,3 +4,7 @@ ENV/
 env/
 
 .vscode/
+Real-ESRGAN/
+uploads/
+*.pt
+*.db
