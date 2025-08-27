@@ -1,0 +1,13 @@
+flask
+ultralytics
+opencv-python
+easyocr
+pytesseract
+numpy
+scipy
+python-dotenv
+werkzeug
+torch
+torchvision
+basicsr
+realesrgan
